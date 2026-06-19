@@ -36,17 +36,18 @@ header{background:var(--red);padding:0 22px;display:flex;align-items:center;
 
 .main-grid{display:grid;grid-template-columns:minmax(260px,320px) 1fr 1fr;
             gap:12px;padding:12px 16px;align-items:start;}
+.bottom-row{grid-column:1/-1;display:flex;gap:12px;align-items:start;}
+.panel-overlap{flex:2;min-width:0;}
+.panel-metrics{flex:1;min-width:0;}
+.metrics-inner{padding:12px 14px;}
 @media(max-width:1050px){
   .main-grid{grid-template-columns:1fr 1fr;}
-  .panel-2d{grid-column:1/-1;max-width:420px;margin:0 auto;width:100%;}
 }
-@media(max-width:600px){
+@media(max-width:700px){
   .main-grid{grid-template-columns:1fr;padding:8px;gap:8px;}
-  .panel-2d{max-width:100%;}
+  .bottom-row{flex-direction:column;}
   header{flex-direction:column;padding:10px 14px;gap:6px;text-align:center;}
-  .hdr-right{align-items:center;}
   .infobar{padding:5px 10px;font-size:.7rem;}
-  .metrics-wrap{margin:0 8px 14px;}
 }
 
 .panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
@@ -59,6 +60,7 @@ header{background:var(--red);padding:0 22px;display:flex;align-items:center;
 
 #canvas-wrap{position:relative;display:block;width:100%;}
 #frame-canvas{display:block;width:100%;height:auto;background:#000;border-radius:6px;}
+#attn-canvas{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:6px;display:none;image-rendering:pixelated;}
 #lm-overlay{position:absolute;top:0;left:0;width:100%;height:100%;border-radius:6px;}
 .slider-row{display:flex;align-items:center;gap:7px;margin-top:8px;}
 #frame-slider{flex:1;accent-color:var(--red);cursor:pointer;min-width:0;}
@@ -78,9 +80,7 @@ header{background:var(--red);padding:0 22px;display:flex;align-items:center;
 .plotly-wrap{height:430px;width:100%;background:#000;}
 @media(max-width:600px){.plotly-wrap{height:300px;}}
 
-.metrics-wrap{margin:0 16px 20px;padding:12px 14px;background:var(--bg2);
-               border:1px solid var(--border);border-radius:10px;
-               box-shadow:0 2px 8px rgba(0,0,0,.07);overflow-x:auto;}
+.metrics-inner{padding:12px 14px;}
 .metrics-title{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:9px;
                 padding-bottom:7px;border-bottom:2px solid var(--red);
                 display:flex;align-items:center;gap:7px;}
@@ -141,7 +141,7 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
 
 <div class="main-grid">
 
-  <!-- 2D viewer -->
+  <!-- ROW 1: 2D viewer -->
   <div class="panel panel-2d">
     <div class="panel-hdr">
       <span><span class="dot"></span>Scan Sequence</span>
@@ -150,7 +150,8 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
     <div style="padding:9px">
       <div id="canvas-wrap">
         <canvas id="frame-canvas" width="160" height="120"></canvas>
-        <canvas id="lm-overlay"  width="160" height="120"></canvas>
+        <canvas id="attn-canvas"  width="28"  height="28"></canvas>
+        <canvas id="lm-overlay"   width="160" height="120"></canvas>
       </div>
       <div class="slider-row">
         <button class="btn-play" id="play-btn" onclick="togglePlay()">&#9654; Play</button>
@@ -163,10 +164,19 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
         <span><span class="dot-lg" style="background:#ff8c00"></span>Right lamina</span>
         <span><span class="dot-lg" style="background:#DA291C;border-radius:2px;"></span>Frame position</span>
       </div>
+      <div style="margin-top:5px;display:flex;align-items:center;gap:10px;font-size:.72rem;color:#999;">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text2);">
+          <input type="checkbox" id="attn-chk" onchange="toggleAttn()">&nbsp;Attention&nbsp;Map
+        </label>
+        <label id="attn-op-wrap" style="display:flex;align-items:center;gap:4px;opacity:0.4;pointer-events:none;">
+          Opacity&nbsp;<input type="range" id="attn-op" min="0.1" max="1.0" step="0.05" value="0.55"
+                 oninput="setAttnOp(+this.value)" style="width:55px;accent-color:var(--red);">
+        </label>
+      </div>
     </div>
   </div>
 
-  <!-- GT 3D -->
+  <!-- ROW 1: GT 3D -->
   <div class="panel">
     <div class="panel-hdr">
       <span><span class="dot b"></span>Ground Truth 3D Volume</span>
@@ -187,7 +197,7 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
     <div id="plot-gt" class="plotly-wrap"></div>
   </div>
 
-  <!-- PRED 3D -->
+  <!-- ROW 1: Pred 3D -->
   <div class="panel">
     <div class="panel-hdr">
       <span><span class="dot"></span>Reconstructed Volume</span>
@@ -208,33 +218,62 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
     <div id="plot-pr" class="plotly-wrap"></div>
   </div>
 
-</div>
+  <!-- ROW 2: Overlap + Metrics side by side -->
+  <div class="bottom-row">
 
-<!-- METRICS -->
-<div class="metrics-wrap">
-  <div class="metrics-title">
-    <span class="bar"></span>
-    Metric Report &mdash; <span id="met-title-scan">—</span>
-  </div>
-  <table class="met">
-    <thead><tr>
-      <th>MDE (mm)</th><th>NDFD</th><th>MEA (&deg;)</th>
-      <th>FDR (%)</th><th>ADR (%)</th><th>MD (mm)</th><th>HD (mm)</th>
-    </tr></thead>
-    <tbody id="met-body"></tbody>
-  </table>
-  <div class="met-legend">
-    <strong>MDE</strong> Mean Distance Error (3D landmark) &nbsp;&middot;&nbsp;
-    <strong>NDFD</strong> Normalized Discrete Fréchet Distance &nbsp;&middot;&nbsp;
-    <strong>MEA</strong> Mean Error of Angle &nbsp;&middot;&nbsp;
-    <strong>FDR</strong> Final Drift Rate &nbsp;&middot;&nbsp;
-    <strong>ADR</strong> Accumulated Drift Rate &nbsp;&middot;&nbsp;
-    <strong>MD</strong> Mean Displacement &nbsp;&middot;&nbsp;
-    <strong>HD</strong> Hausdorff Distance
-    &emsp;<span style="color:#1a7a1a">&#9632;&nbsp;good</span>
-    &nbsp;<span style="color:#885500">&#9632;&nbsp;warn</span>
-    &nbsp;<span style="color:#1a1a8a">&#9632;&nbsp;landmark</span>
-  </div>
+    <!-- Overlap -->
+    <div class="panel panel-overlap">
+      <div class="panel-hdr">
+        <span><span class="dot" style="background:#9b59b6"></span>GT &amp; Pred Overlap</span>
+        <span style="font-size:.67rem;font-weight:400;color:#999">drag&nbsp;&middot;&nbsp;scroll&nbsp;&middot;&nbsp;pinch</span>
+      </div>
+      <div class="vol-ctrl">
+        <label><input type="checkbox" id="ov-gt-chk" checked onchange="toggleOv('gt')">&nbsp;<span style="color:#22bb44">GT</span>&nbsp;Vol</label>
+        <label style="gap:5px">Op<input type="range" id="ov-gt-op" min="0.1" max="1.0" step="0.05" value="0.65"
+               oninput="setOvOp('gt',+this.value)"></label>
+        <span class="sep">|</span>
+        <label><input type="checkbox" id="ov-pr-chk" checked onchange="toggleOv('pr')">&nbsp;<span style="color:#DA291C">Pred</span>&nbsp;Vol</label>
+        <label style="gap:5px">Op<input type="range" id="ov-pr-op" min="0.1" max="1.0" step="0.05" value="0.65"
+               oninput="setOvOp('pr',+this.value)"></label>
+        <span class="sep">|</span>
+        <label><input type="checkbox" id="ov-lm-chk" checked onchange="toggleOvLm()">&nbsp;Landmarks</label>
+        <label><input type="checkbox" id="ov-hull-chk" checked onchange="toggleOvHull()">&nbsp;Sweep</label>
+      </div>
+      <div id="plot-ov" class="plotly-wrap"></div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="panel panel-metrics">
+      <div class="panel-hdr">
+        <span><span class="dot" style="background:#1a7a1a"></span>Metric Report &mdash; <span id="met-title-scan">—</span></span>
+      </div>
+      <div class="metrics-inner">
+        <div style="overflow-x:auto">
+          <table class="met">
+            <thead><tr>
+              <th>MDE (mm)</th><th>NDFD</th><th>MEA (&deg;)</th>
+              <th>FDR (%)</th><th>ADR (%)</th><th>MD (mm)</th><th>HD (mm)</th>
+            </tr></thead>
+            <tbody id="met-body"></tbody>
+          </table>
+        </div>
+        <div class="met-legend">
+          <strong>MDE</strong> Mean Distance Error &nbsp;&middot;&nbsp;
+          <strong>NDFD</strong> Fréchet Distance &nbsp;&middot;&nbsp;
+          <strong>MEA</strong> Mean Angle Error &nbsp;&middot;&nbsp;
+          <strong>FDR</strong> Final Drift Rate &nbsp;&middot;&nbsp;
+          <strong>ADR</strong> Accumulated Drift Rate &nbsp;&middot;&nbsp;
+          <strong>MD</strong> Mean Displacement &nbsp;&middot;&nbsp;
+          <strong>HD</strong> Hausdorff Distance
+          &emsp;<span style="color:#1a7a1a">&#9632;&nbsp;good</span>
+          &nbsp;<span style="color:#885500">&#9632;&nbsp;warn</span>
+          &nbsp;<span style="color:#1a1a8a">&#9632;&nbsp;landmark</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end bottom-row -->
+
 </div>
 
 <footer>
@@ -268,6 +307,13 @@ function expandCompactGrid(g) {
 
 // ── trace builders ─────────────────────────────────────────────────────────────
 // bone colormap: medium gray → light blue-gray → white (no dark tones)
+const GT_OV_CS=[
+  [0.00,'rgb(20,110,35)'],[0.40,'rgb(50,180,70)'],[0.75,'rgb(130,225,145)'],[1.00,'rgb(205,255,215)']
+];
+const PR_OV_CS=[
+  [0.00,'rgb(170,20,20)'],[0.40,'rgb(230,60,40)'],[0.75,'rgb(255,150,110)'],[1.00,'rgb(255,220,200)']
+];
+
 const VOL_COLORSCALE=[
   [0.00,'rgb(110,115,125)'],
   [0.35,'rgb(155,162,175)'],
@@ -276,14 +322,14 @@ const VOL_COLORSCALE=[
   [1.00,'rgb(238,242,250)']
 ];
 
-function buildVolumeTrace(gridData, opacity) {
+function buildVolumeTrace(gridData, opacity, cs=VOL_COLORSCALE) {
   const {x,y,z,value}=expandCompactGrid(gridData);
   return {
     type:'isosurface', name:'Volume',
     x,y,z,value,
     isomin:0.35, isomax:1.0,
     surface:{count:2, fill:0.95},
-    colorscale:VOL_COLORSCALE,
+    colorscale:cs,
     cmin:0.28, cmax:1.0,
     opacity:opacity*0.92,
     showscale:false,
@@ -325,13 +371,13 @@ function buildLmTrace(lmData, name, c0, c1) {
   return [
     {type:'scatter3d',mode:'markers',name:'Left ('+name+')',
       x:p0.map(p=>p[0]),y:p0.map(p=>p[1]),z:p0.map(p=>p[2]),
-      marker:{color:c0,size:5,opacity:0.95,symbol:'circle',
-               line:{color:'rgba(0,0,0,0.5)',width:0.5}},
+      marker:{color:c0,size:2.5,opacity:0.9,symbol:'circle',
+               line:{color:'rgba(0,0,0,0.4)',width:0.3}},
       hovertemplate:'Left lamina<br>(%{x:.1f}, %{y:.1f}, %{z:.1f})<extra></extra>'},
     {type:'scatter3d',mode:'markers',name:'Right ('+name+')',
       x:p1.map(p=>p[0]),y:p1.map(p=>p[1]),z:p1.map(p=>p[2]),
-      marker:{color:c1,size:5,opacity:0.95,symbol:'circle',
-               line:{color:'rgba(0,0,0,0.5)',width:0.5}},
+      marker:{color:c1,size:2.5,opacity:0.9,symbol:'circle',
+               line:{color:'rgba(0,0,0,0.4)',width:0.3}},
       hovertemplate:'Right lamina<br>(%{x:.1f}, %{y:.1f}, %{z:.1f})<extra></extra>'},
   ];
 }
@@ -343,6 +389,8 @@ function buildHullTrace(hull, color, name) {
 // Trace indices
 const GT_ISO=0,GT_PC=1,GT_LM0=2,GT_LM1=3,GT_HULL=4,GT_SLICE=5,GT_FRAME=6;
 const PR_ISO=0,PR_PC=1,PR_LM0=2,PR_LM1=3,PR_HULL=4,PR_SLICE=5,PR_FRAME=6;
+// overlap panel: GT iso=0, Pred iso=1, GT LM0/1=2/3, Pred LM0/1=4/5, GT hull=6, Pred hull=7
+const OV_GT_ISO=0,OV_PR_ISO=1,OV_GT_LM0=2,OV_GT_LM1=3,OV_PR_LM0=4,OV_PR_LM1=5,OV_GT_HULL=6,OV_PR_HULL=7;
 const INIT_OP=1.0;
 
 const emptySlice={
@@ -371,8 +419,24 @@ const plotCfg={responsive:true,displaylogo:false,modeBarButtonsToRemove:['toImag
 
 // ── controls ──────────────────────────────────────────────────────────────────
 let renderMode={gt:'iso',pr:'iso'};
-let gtTraces=[],prTraces=[];
+let gtTraces=[],prTraces=[],ovTraces=[];
 
+function toggleOv(w)    {
+  const idx=w==='gt'?OV_GT_ISO:OV_PR_ISO;
+  Plotly.restyle('plot-ov',{visible:document.getElementById('ov-'+w+'-chk').checked},[idx]);
+}
+function setOvOp(w,v)   {
+  const idx=w==='gt'?OV_GT_ISO:OV_PR_ISO;
+  Plotly.restyle('plot-ov',{opacity:v*0.85},[idx]);
+}
+function toggleOvLm()   {
+  const vis=document.getElementById('ov-lm-chk').checked;
+  Plotly.restyle('plot-ov',{visible:vis},[OV_GT_LM0,OV_GT_LM1,OV_PR_LM0,OV_PR_LM1]);
+}
+function toggleOvHull() {
+  const vis=document.getElementById('ov-hull-chk').checked;
+  Plotly.restyle('plot-ov',{visible:vis},[OV_GT_HULL,OV_PR_HULL]);
+}
 function toggleVol(w)   {
   const vis=document.getElementById(w+'-vol-chk').checked, iso=renderMode[w]==='iso';
   Plotly.restyle('plot-'+w,{visible:vis&&iso},[GT_ISO]);
@@ -438,12 +502,49 @@ function updateFrame3D(fi){
 // ── 2D viewer ──────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('frame-canvas');
 const overlay=document.getElementById('lm-overlay');
+const attnCanvas=document.getElementById('attn-canvas');
 const ctx=canvas.getContext('2d'),octx=overlay.getContext('2d');
+const actx=attnCanvas.getContext('2d');
 const W=canvas.width,H=canvas.height;
 let currentFrame=0,playTimer=null;
 
+// ── attention map ──────────────────────────────────────────────────────────────
+let attnMaps=null, attnShape=[28,28], attnAlpha=0.55, showAttn=false;
+
+function hotColor(v){
+  // hot colormap: black→red→yellow→white
+  const r=Math.min(255,Math.round(v*3*255));
+  const g=Math.min(255,Math.max(0,Math.round((v*3-1)*255)));
+  const b=Math.min(255,Math.max(0,Math.round((v*3-2)*255)));
+  return [r,g,b];
+}
+function drawAttnMap(fi){
+  if(!attnMaps||!showAttn){actx.clearRect(0,0,attnCanvas.width,attnCanvas.height);return;}
+  const data=attnMaps[fi];
+  if(!data){actx.clearRect(0,0,attnCanvas.width,attnCanvas.height);return;}
+  const[AH,AW]=attnShape;
+  const idata=actx.createImageData(AW,AH);
+  for(let i=0;i<data.length;i++){
+    const v=data[i];
+    const[r,g,b]=hotColor(v);
+    idata.data[i*4  ]=r;
+    idata.data[i*4+1]=g;
+    idata.data[i*4+2]=b;
+    idata.data[i*4+3]=v<0.05?0:Math.round(attnAlpha*v*255);
+  }
+  actx.putImageData(idata,0,0);
+}
+function toggleAttn(){
+  showAttn=document.getElementById('attn-chk').checked;
+  attnCanvas.style.display=showAttn?'':'none';
+  const opWrap=document.getElementById('attn-op-wrap');
+  opWrap.style.opacity=showAttn?'1':'0.4';
+  opWrap.style.pointerEvents=showAttn?'':'none';
+  drawAttnMap(currentFrame);
+}
+function setAttnOp(v){attnAlpha=v;drawAttnMap(currentFrame);}
+
 function frameUrl(fi){
-  // Support both external URL (frames_url) and embedded base64 (frames_b64)
   if(DATA.frames_b64) return 'data:image/jpeg;base64,'+DATA.frames_b64[fi];
   return DATA.frames_url+'/'+String(fi).padStart(4,'0')+'.jpg';
 }
@@ -452,7 +553,7 @@ function setFrame(fi){
   document.getElementById('frame-slider').value=fi;
   document.getElementById('frame-num').textContent=(fi+1)+' / '+DATA.n_frames;
   const im=new Image();
-  im.onload=()=>{ctx.drawImage(im,0,0,W,H);drawLM(fi);updateSlice(fi);};
+  im.onload=()=>{ctx.drawImage(im,0,0,W,H);drawAttnMap(fi);drawLM(fi);updateSlice(fi);};
   im.src=frameUrl(fi);
   updateFrame3D(fi);
 }
@@ -496,14 +597,15 @@ function updateInfobar(patient,scan,n){
 let _sync=false;
 function attachCameraSync(){
   _sync=false;
-  const gt=document.getElementById('plot-gt'),pr=document.getElementById('plot-pr');
-  gt.on('plotly_relayout',e=>{
-    if(_sync||!e['scene.camera'])return;
-    _sync=true;Plotly.relayout(pr,{'scene.camera':e['scene.camera']}).then(()=>{_sync=false;});
-  });
-  pr.on('plotly_relayout',e=>{
-    if(_sync||!e['scene.camera'])return;
-    _sync=true;Plotly.relayout(gt,{'scene.camera':e['scene.camera']}).then(()=>{_sync=false;});
+  const plots=['plot-gt','plot-pr','plot-ov'].map(id=>document.getElementById(id));
+  plots.forEach(src=>{
+    src.on('plotly_relayout',e=>{
+      if(_sync||!e['scene.camera'])return;
+      _sync=true;
+      const cam={'scene.camera':e['scene.camera']};
+      Promise.all(plots.filter(p=>p!==src).map(p=>Plotly.relayout(p,cam)))
+        .then(()=>{_sync=false;});
+    });
   });
 }
 
@@ -511,6 +613,24 @@ function attachCameraSync(){
 function initAll(newData, newD3){
   if(playTimer){clearInterval(playTimer);playTimer=null;document.getElementById('play-btn').innerHTML='&#9654; Play';}
   DATA=newData;
+
+  // Load attention maps (present in newer JSON; gracefully absent in old)
+  attnMaps = newData.attn_maps || null;
+  attnShape = newData.attn_shape || [28,28];
+  const attnChk=document.getElementById('attn-chk');
+  const attnOpWrap=document.getElementById('attn-op-wrap');
+  if(attnMaps){
+    attnChk.disabled=false; attnChk.parentElement.style.opacity='1';
+    attnChk.parentElement.style.pointerEvents='';
+  } else {
+    attnChk.disabled=true; attnChk.parentElement.style.opacity='0.35';
+    attnChk.parentElement.style.pointerEvents='none';
+  }
+  // Reset attention state on case change
+  attnChk.checked=false; showAttn=false;
+  attnCanvas.style.display='none';
+  attnOpWrap.style.opacity='0.4'; attnOpWrap.style.pointerEvents='none';
+
   renderMode={gt:'iso',pr:'iso'};
   document.getElementById('gt-pc-chk').checked=false;
   document.getElementById('pr-pc-chk').checked=false;
@@ -532,10 +652,20 @@ function initAll(newData, newD3){
     {type:'scatter3d',mode:'lines',name:'Frame outline',x:[],y:[],z:[],line:{color:'#ff3333',width:3.5},hoverinfo:'skip'},
   ];
 
-  Plotly.purge('plot-gt');Plotly.purge('plot-pr');
+  ovTraces=[
+    {...buildVolumeTrace(newD3.iso_gt,0.65,GT_OV_CS), name:'GT Volume'},
+    {...buildVolumeTrace(newD3.iso_pr,0.65,PR_OV_CS), name:'Pred Volume'},
+    ...buildLmTrace(newD3.lm_gt,'GT','#00eeff','#ffaa22'),
+    ...buildLmTrace(newD3.lm_pr,'Pred','#00cccc','#ee8800'),
+    buildHullTrace(newD3.hull_gt,'#22cc22','GT sweep'),
+    buildHullTrace(newD3.hull_pr,'#ff4444','Pred sweep'),
+  ];
+
+  Plotly.purge('plot-gt');Plotly.purge('plot-pr');Plotly.purge('plot-ov');
   Promise.all([
     Plotly.newPlot('plot-gt',gtTraces,scene3d,plotCfg),
     Plotly.newPlot('plot-pr',prTraces,scene3d,plotCfg),
+    Plotly.newPlot('plot-ov',ovTraces,scene3d,plotCfg),
   ]).then(()=>{
     attachCameraSync();
     updateInfobar(DATA.patient,DATA.scan,DATA.n_frames);
