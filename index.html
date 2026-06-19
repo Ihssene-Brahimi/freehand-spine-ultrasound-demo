@@ -133,9 +133,10 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
 
 <div class="infobar">
   <select id="case-select" onchange="loadCase(this.value)">
+    <option value="03_ST_May_31_scan_2">Patient 03 &mdash; ST May 31 &mdash; Scan 2</option>
+    <option value="03_ST_May_31_scan_3">Patient 03 &mdash; ST May 31 &mdash; Scan 3</option>
     <option value="29_BL_Aug_11_scan_3">Patient 29 &mdash; BL Aug 11 &mdash; Scan 3</option>
-    <option value="03_ST_May_31_scan_3">Case 2 (TBD)</option>
-    <option value="34_JA_Aug_25_scan_8">Case 3 (TBD)</option>
+    <option value="37_MG_Aug_30_scan_5">Patient 37 &mdash; MG Aug 30 &mdash; Scan 5</option>
   </select>
 </div>
 
@@ -285,9 +286,10 @@ footer{background:var(--red);color:rgba(255,255,255,.88);text-align:center;font-
 <script>
 // ── config ────────────────────────────────────────────────────────────────────
 const CASES = [
+  {slug:'03_ST_May_31_scan_2',  label:'Patient 03 — ST May 31 — Scan 2'},
+  {slug:'03_ST_May_31_scan_3',  label:'Patient 03 — ST May 31 — Scan 3'},
   {slug:'29_BL_Aug_11_scan_3',  label:'Patient 29 — BL Aug 11 — Scan 3'},
-  {slug:'03_ST_May_31_scan_3',  label:'Case 2 (TBD)'},
-  {slug:'34_JA_Aug_25_scan_8',  label:'Case 3 (TBD)'},
+  {slug:'37_MG_Aug_30_scan_5',  label:'Patient 37 — MG Aug 30 — Scan 5'},
 ];
 
 let DATA = null;   // metadata (lm_2d, series, metrics, frames_url / frames_b64)
@@ -561,8 +563,10 @@ function drawLM(fi){
   octx.clearRect(0,0,W,H);
   const lm=DATA.lm_2d[String(fi)];if(!lm)return;
   const C={'0':'#00cccc','1':'#ff8c00'},L={'0':'L','1':'R'};
+  const sx=W/320,sy=H/240;
   for(const[s,pt]of Object.entries(lm)){
-    const[x,y]=pt;octx.beginPath();octx.arc(x,y,3,0,2*Math.PI);
+    const x=pt[0]*sx,y=pt[1]*sy;
+    octx.beginPath();octx.arc(x,y,3,0,2*Math.PI);
     octx.fillStyle=C[s];octx.fill();octx.strokeStyle='#fff';octx.lineWidth=1.5;octx.stroke();
     octx.font='bold 11px monospace';octx.fillStyle=C[s];octx.fillText(L[s],x+8,y+4);
   }
